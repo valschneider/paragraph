@@ -1,4 +1,5 @@
 let map;
+let deckOverlay;
 
 // From https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/
 function initMap() {
@@ -67,6 +68,81 @@ function initMap() {
     );
 
     map.addControl(new maplibregl.FullscreenControl());
+
+    // Initialize Deck.gl overlay
+    deckOverlay = new deck.MapboxOverlay({
+	interleaved: true,
+	layers: []
+    });
+    map.addControl(deckOverlay);
 }
+
+function parseGPX(gpxText) {
+    const parser = new DOMParser();
+    const gpxDoc = parser.parseFromString(gpxText, 'text/xml');
+    const geojson = toGeoJSON.gpx(gpxDoc);
+    return geojson;
+}
+
+function displayTrack(geojson) {
+    // Extract coordinates from GeoJSON
+    const features = geojson.features || [];
+    const tracks = features.filter(f => f.geometry.type === 'LineString');
+
+    if (tracks.length === 0) {
+	console.error('No track found in GPX');
+	return;
+    }
+
+    const track = tracks[0];
+    const coordinates = track.geometry.coordinates;
+
+    // Create PathLayer
+    const pathLayer = new deck.PathLayer({
+	id: 'gpx-track',
+	data: [track],
+	getPath: d => d.geometry.coordinates,
+	getColor: [255, 51, 51],
+	getWidth: 5,
+	widthMinPixels: 2,
+	widthMaxPixels: 10
+    });
+
+    // Update deck.gl overlay
+    deckOverlay.setProps({
+	layers: [pathLayer]
+    });
+
+    // Fit map to track bounds
+    if (coordinates.length > 0) {
+	const lngs = coordinates.map(c => c[0]);
+	const lats = coordinates.map(c => c[1]);
+	const bounds = [
+	    [Math.min(...lngs), Math.min(...lats)],
+	    [Math.max(...lngs), Math.max(...lats)]
+	];
+	map.fitBounds(bounds, { padding: 50 });
+    }
+}
+
+document.getElementById('gpx-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+	console.log('GPX file selected:', file.name);
+
+	const reader = new FileReader();
+	reader.onload = (event) => {
+	    try {
+		const gpxText = event.target.result;
+		const geojson = parseGPX(gpxText);
+		console.log('Parsed GeoJSON:', geojson);
+		displayTrack(geojson);
+	    } catch (error) {
+		console.error('Error parsing GPX:', error);
+	    }
+	};
+	reader.readAsText(file);
+    }
+});
 
 initMap();
