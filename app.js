@@ -1,5 +1,8 @@
 let map;
 let deckOverlay;
+let currentGeojson = null;
+let trackColor = [255, 51, 51];
+let trackOpacity = 255;
 
 // From https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/
 function initMap() {
@@ -85,35 +88,18 @@ function parseGPX(gpxText) {
 }
 
 function displayTrack(geojson) {
+    currentGeojson = geojson;
+
+    updateTrackLayer();
+
     // Extract coordinates from GeoJSON
     const features = geojson.features || [];
     const tracks = features.filter(f => f.geometry.type === 'LineString');
 
-    if (tracks.length === 0) {
-	console.error('No track found in GPX');
-	return;
-    }
-
+    // Fit map to track bounds
     const track = tracks[0];
     const coordinates = track.geometry.coordinates;
 
-    // Create PathLayer
-    const pathLayer = new deck.PathLayer({
-	id: 'gpx-track',
-	data: [track],
-	getPath: d => d.geometry.coordinates,
-	getColor: [255, 51, 51],
-	getWidth: 5,
-	widthMinPixels: 2,
-	widthMaxPixels: 10
-    });
-
-    // Update deck.gl overlay
-    deckOverlay.setProps({
-	layers: [pathLayer]
-    });
-
-    // Fit map to track bounds
     if (coordinates.length > 0) {
 	const lngs = coordinates.map(c => c[0]);
 	const lats = coordinates.map(c => c[1]);
@@ -123,6 +109,46 @@ function displayTrack(geojson) {
 	];
 	map.fitBounds(bounds, { padding: 50 });
     }
+}
+
+function updateTrackLayer() {
+    if (!currentGeojson) return;
+
+    const features = currentGeojson.features || [];
+    const tracks = features.filter(f => f.geometry.type === 'LineString');
+
+    if (tracks.length === 0) {
+	console.error('No track found in GPX');
+	return;
+    }
+
+    const track = tracks[0];
+    const color = [...trackColor, trackOpacity];
+
+    // Create PathLayer
+    const pathLayer = new deck.PathLayer({
+	id: 'gpx-track',
+	data: [track],
+	getPath: d => d.geometry.coordinates,
+	getColor: color,
+	getWidth: 5,
+	widthMinPixels: 2,
+	widthMaxPixels: 10
+    });
+
+    // Update deck.gl overlay
+    deckOverlay.setProps({
+	layers: [pathLayer]
+    });
+}
+
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [
+	parseInt(result[1], 16),
+	parseInt(result[2], 16),
+	parseInt(result[3], 16)
+    ] : [255, 51, 51];
 }
 
 document.getElementById('gpx-file').addEventListener('change', (e) => {
@@ -143,6 +169,18 @@ document.getElementById('gpx-file').addEventListener('change', (e) => {
 	};
 	reader.readAsText(file);
     }
+});
+
+document.getElementById('track-color').addEventListener('input', (e) => {
+    trackColor = hexToRgb(e.target.value);
+    updateTrackLayer();
+});
+
+document.getElementById('track-opacity').addEventListener('input', (e) => {
+    trackOpacity = parseInt(e.target.value);
+    const percentage = Math.round((trackOpacity / 255) * 100);
+    document.getElementById('opacity-value').textContent = `${percentage}%`;
+    updateTrackLayer();
 });
 
 initMap();
