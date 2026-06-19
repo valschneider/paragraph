@@ -83,8 +83,134 @@ function initMap() {
 function parseGPX(gpxText) {
     const parser = new DOMParser();
     const gpxDoc = parser.parseFromString(gpxText, 'text/xml');
+
+    // Extract trackpoints with time and elevation data
+    const trackpoints = gpxDoc.querySelectorAll('trkpt');
+    const points = [];
+
+    trackpoints.forEach(trkpt => {
+        const lat = parseFloat(trkpt.getAttribute('lat'));
+        const lon = parseFloat(trkpt.getAttribute('lon'));
+
+        const eleElement = trkpt.querySelector('ele');
+        const ele = eleElement ? parseFloat(eleElement.textContent) : null;
+
+        const timeElement = trkpt.querySelector('time');
+        const time = timeElement ? new Date(timeElement.textContent) : null;
+
+        points.push({
+            coordinates: [lon, lat, ele],
+            elevation: ele,
+            time: time
+        });
+    });
+
     const geojson = toGeoJSON.gpx(gpxDoc);
+
+    // Attach our parsed points with elevation and time
+    if (geojson.features && geojson.features.length > 0) {
+        geojson.features[0].properties.points = points;
+    }
+
     return geojson;
+}
+
+function computeClimbRate(points, windowSeconds = 5) {
+    const climbRates = [];
+
+    for (let i = 0; i < points.length; i++) {
+        const currentPoint = points[i];
+
+        if (!currentPoint.time || currentPoint.elevation === null) {
+            climbRates.push(0);
+            continue;
+        }
+
+        // Find points within window
+        let startIdx = i;
+        for (let j = i - 1; j >= 0; j--) {
+            if (!points[j].time) break;
+            const timeDiff = (currentPoint.time - points[j].time) / 1000;
+            if (timeDiff > windowSeconds) break;
+            startIdx = j;
+        }
+
+        if (startIdx === i) {
+            climbRates.push(0);
+            continue;
+        }
+
+        const startPoint = points[startIdx];
+        const elevationGain = currentPoint.elevation - startPoint.elevation;
+        const timeDiff = (currentPoint.time - startPoint.time) / 1000;
+
+        const climbRate = timeDiff > 0 ? elevationGain / timeDiff : 0;
+        climbRates.push(climbRate);
+    }
+
+    return climbRates;
+}
+
+// Color palette: blue (cold/sinking) to red (hot/climbing)
+// Ranges: ]-inf, -4], ]-4, -3], ]-3, -2], ]-2, -1], ]-1, 0], ]0, 1], ]1, 2], ]2, 3], ]3, 4], ]4, inf[
+function getColorForClimbRate(climbRate) {
+    if (climbRate <= -4) {
+        return [0, 0, 139];      // Dark blue
+    } else if (climbRate <= -3) {
+        return [0, 0, 205];      // Medium blue
+    } else if (climbRate <= -2) {
+        return [30, 144, 255];   // Dodger blue
+    } else if (climbRate <= -1) {
+        return [100, 149, 237];  // Cornflower blue
+    } else if (climbRate <= 0) {
+        return [135, 206, 250];  // Light sky blue
+    } else if (climbRate <= 1) {
+        return [50, 205, 50];    // Lime green
+    } else if (climbRate <= 2) {
+        return [255, 255, 0];    // Yellow
+    } else if (climbRate <= 3) {
+        return [255, 165, 0];    // Orange
+    } else if (climbRate <= 4) {
+        return [255, 69, 0];     // Red-orange
+    } else {
+        return [139, 0, 0];      // Dark red
+    }
+}
+
+function segmentTrackByClimbRate(points, climbRates, opacity) {
+    const segments = [];
+
+    let currentSegment = {
+        path: [points[0].coordinates],
+        color: [...getColorForClimbRate(climbRates[0]), opacity]
+    };
+
+    for (let i = 1; i < points.length; i++) {
+        const currentColor = getColorForClimbRate(climbRates[i]);
+        const prevColor = getColorForClimbRate(climbRates[i - 1]);
+
+        // Check if color category changed
+        if (JSON.stringify(currentColor) === JSON.stringify(prevColor)) {
+            currentSegment.path.push(points[i].coordinates);
+        } else {
+            // Finish current segment
+            currentSegment.path.push(points[i].coordinates);
+            segments.push(currentSegment);
+
+            // Start new segment
+            currentSegment = {
+                path: [points[i].coordinates],
+                color: [...currentColor, opacity]
+            };
+        }
+    }
+
+    // Add final segment
+    if (currentSegment.path.length > 0) {
+        segments.push(currentSegment);
+    }
+
+    return segments;
 }
 
 function displayTrack(geojson) {
@@ -123,14 +249,27 @@ function updateTrackLayer() {
     }
 
     const track = tracks[0];
-    const color = [...trackColor, trackOpacity];
+    const points = track.properties.points;
 
-    // Create PathLayer
+    if (!points || points.length === 0) {
+	console.error('No points data available');
+	return;
+    }
+
+    // Compute climb rates
+    const climbRates = computeClimbRate(points, 5);
+
+    // Segment track by climb rate
+    const segments = segmentTrackByClimbRate(points, climbRates, trackOpacity);
+
+    console.log('Created', segments.length, 'segments');
+
+    // Create PathLayer with segmented data
     const pathLayer = new deck.PathLayer({
 	id: 'gpx-track',
-	data: [track],
-	getPath: d => d.geometry.coordinates,
-	getColor: color,
+	data: segments,
+	getPath: d => d.path,
+	getColor: d => d.color,
 	getWidth: 5,
 	widthMinPixels: 2,
 	widthMaxPixels: 10
