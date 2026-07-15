@@ -57,6 +57,70 @@
 	  color: #666;
 	  margin-top: 2px;
       }
+
+      .legend-toggle {
+	  position: absolute;
+	  bottom: 30px;
+	  right: 10px;
+	  z-index: 1;
+	  width: 32px;
+	  height: 32px;
+	  background: white;
+	  border: none;
+	  border-radius: 4px;
+	  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	  cursor: pointer;
+	  font-size: 18px;
+	  line-height: 32px;
+	  text-align: center;
+	  padding: 0;
+      }
+
+      .legend-toggle:hover {
+	  background: #f0f0f0;
+      }
+
+      .legend {
+	  display: none;
+	  position: absolute;
+	  bottom: 70px;
+	  right: 10px;
+	  z-index: 1;
+	  background: white;
+	  padding: 10px 12px;
+	  border-radius: 4px;
+	  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	  font-size: 12px;
+	  font-family: sans-serif;
+      }
+
+      .legend.visible {
+	  display: block;
+      }
+
+      .legend-title {
+	  font-weight: 600;
+	  margin-bottom: 6px;
+	  font-size: 13px;
+      }
+
+      .legend-item {
+	  display: flex;
+	  align-items: center;
+	  margin-bottom: 3px;
+      }
+
+      .legend-swatch {
+	  width: 20px;
+	  height: 12px;
+	  border-radius: 2px;
+	  margin-right: 6px;
+	  flex-shrink: 0;
+      }
+
+      .legend-label {
+	  white-space: nowrap;
+      }
     </style>
   </head>
   <body>
@@ -74,6 +138,21 @@
 	<input type="range" id="track-opacity" min="0" max="255" value="255" step="1" />
 	<div class="slider-value" id="opacity-value">100%</div>
       </div>
+    </div>
+
+    <button class="legend-toggle" id="legend-toggle" title="Color legend">&#x25A8;</button>
+    <div class="legend" id="legend">
+      <div class="legend-title">Climb rate (m/s)</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(139,0,0)"></span><span class="legend-label">&gt; 4</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(255,69,0)"></span><span class="legend-label">3 to 4</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(255,165,0)"></span><span class="legend-label">2 to 3</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(255,255,0)"></span><span class="legend-label">1 to 2</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(50,205,50)"></span><span class="legend-label">0 to 1</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(135,206,250)"></span><span class="legend-label">-1 to 0</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(100,149,237)"></span><span class="legend-label">-2 to -1</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(30,144,255)"></span><span class="legend-label">-3 to -2</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(0,0,205)"></span><span class="legend-label">-4 to -3</span></div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgb(0,0,139)"></span><span class="legend-label">&lt; -4</span></div>
     </div>
 
     <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>

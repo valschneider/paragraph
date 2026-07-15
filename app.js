@@ -322,4 +322,8 @@ document.getElementById('track-opacity').addEventListener('input', (e) => {
     updateTrackLayer();
 });
 
+document.getElementById('legend-toggle').addEventListener('click', () => {
+    document.getElementById('legend').classList.toggle('visible');
+});
+
 initMap();
