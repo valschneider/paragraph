@@ -150,30 +150,22 @@ function computeClimbRate(points, windowSeconds = 5) {
     return climbRates;
 }
 
-// Color palette: blue (cold/sinking) to red (hot/climbing)
-// Ranges: ]-inf, -4], ]-4, -3], ]-3, -2], ]-2, -1], ]-1, 0], ]0, 1], ]1, 2], ]2, 3], ]3, 4], ]4, inf[
+const climbScale = chroma.scale([
+    [0, 0, 139],       // -4: Dark blue
+    [0, 0, 205],       // -3: Medium blue
+    [30, 144, 255],    // -2: Dodger blue
+    [100, 149, 237],   // -1: Cornflower blue
+    [135, 206, 250],   //  0: Light sky blue
+    [50, 205, 50],     //  1: Lime green
+    [255, 255, 0],     //  2: Yellow
+    [255, 165, 0],     //  3: Orange
+    [255, 69, 0],      //  4: Red-orange
+    [139, 0, 0],       //  5: Dark red
+]).domain([-4, -3, -2, -1, 0, 1, 2, 3, 4, 5]);
+
 function getColorForClimbRate(climbRate) {
-    if (climbRate <= -4) {
-        return [0, 0, 139];      // Dark blue
-    } else if (climbRate <= -3) {
-        return [0, 0, 205];      // Medium blue
-    } else if (climbRate <= -2) {
-        return [30, 144, 255];   // Dodger blue
-    } else if (climbRate <= -1) {
-        return [100, 149, 237];  // Cornflower blue
-    } else if (climbRate <= 0) {
-        return [135, 206, 250];  // Light sky blue
-    } else if (climbRate <= 1) {
-        return [50, 205, 50];    // Lime green
-    } else if (climbRate <= 2) {
-        return [255, 255, 0];    // Yellow
-    } else if (climbRate <= 3) {
-        return [255, 165, 0];    // Orange
-    } else if (climbRate <= 4) {
-        return [255, 69, 0];     // Red-orange
-    } else {
-        return [139, 0, 0];      // Dark red
-    }
+    const stepped = Math.max(-4, Math.min(5, Math.ceil(climbRate)));
+    return climbScale(stepped).rgb();
 }
 
 function segmentTrackByClimbRate(points, climbRates, opacity) {
@@ -311,4 +303,34 @@ document.getElementById('legend-toggle').addEventListener('click', () => {
     document.getElementById('legend').classList.toggle('visible');
 });
 
+function buildLegend() {
+    const legend = document.getElementById('legend');
+    const entries = [
+	{ value:  5, label: '> 4' },
+	{ value:  4, label: '3 to 4' },
+	{ value:  3, label: '2 to 3' },
+	{ value:  2, label: '1 to 2' },
+	{ value:  1, label: '0 to 1' },
+	{ value:  0, label: '-1 to 0' },
+	{ value: -1, label: '-2 to -1' },
+	{ value: -2, label: '-3 to -2' },
+	{ value: -3, label: '-4 to -3' },
+	{ value: -4, label: '≤ -4' },
+    ];
+    for (const entry of entries) {
+	const item = document.createElement('div');
+	item.className = 'legend-item';
+	const swatch = document.createElement('span');
+	swatch.className = 'legend-swatch';
+	swatch.style.background = climbScale(entry.value).css();
+	const label = document.createElement('span');
+	label.className = 'legend-label';
+	label.textContent = entry.label;
+	item.appendChild(swatch);
+	item.appendChild(label);
+	legend.appendChild(item);
+    }
+}
+
+buildLegend();
 initMap();

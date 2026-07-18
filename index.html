@@ -9,6 +9,7 @@
     <script src='https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js'></script>
     <script src='https://unpkg.com/deck.gl@latest/dist.min.js'></script>
     <script src='https://unpkg.com/@mapbox/togeojson@0.16.2/togeojson.js'></script>
+    <script src='https://unpkg.com/chroma-js/dist/chroma.min.cjs'></script>
     <style>
       body { margin: 0; padding: 0; }
       html, body, #map { height: 100%; }
@@ -130,16 +131,6 @@
     <button class="legend-toggle" id="legend-toggle" title="Color legend">&#x25A8;</button>
     <div class="legend" id="legend">
       <div class="legend-title">Climb rate (m/s)</div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(139,0,0)"></span><span class="legend-label">&gt; 4</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(255,69,0)"></span><span class="legend-label">3 to 4</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(255,165,0)"></span><span class="legend-label">2 to 3</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(255,255,0)"></span><span class="legend-label">1 to 2</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(50,205,50)"></span><span class="legend-label">0 to 1</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(135,206,250)"></span><span class="legend-label">-1 to 0</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(100,149,237)"></span><span class="legend-label">-2 to -1</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(30,144,255)"></span><span class="legend-label">-3 to -2</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(0,0,205)"></span><span class="legend-label">-4 to -3</span></div>
-      <div class="legend-item"><span class="legend-swatch" style="background:rgb(0,0,139)"></span><span class="legend-label">&lt; -4</span></div>
     </div>
 
     <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
