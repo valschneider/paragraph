@@ -1,7 +1,6 @@
 let map;
 let deckOverlay;
 let currentGeojson = null;
-let trackColor = [255, 51, 51];
 let trackOpacity = 255;
 
 // From https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/
@@ -281,15 +280,6 @@ function updateTrackLayer() {
     });
 }
 
-function hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? [
-	parseInt(result[1], 16),
-	parseInt(result[2], 16),
-	parseInt(result[3], 16)
-    ] : [255, 51, 51];
-}
-
 document.getElementById('gpx-file').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -308,11 +298,6 @@ document.getElementById('gpx-file').addEventListener('change', (e) => {
 	};
 	reader.readAsText(file);
     }
-});
-
-document.getElementById('track-color').addEventListener('input', (e) => {
-    trackColor = hexToRgb(e.target.value);
-    updateTrackLayer();
 });
 
 document.getElementById('track-opacity').addEventListener('input', (e) => {
