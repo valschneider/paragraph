@@ -77,6 +77,7 @@ function initMap() {
 	layers: []
     });
     map.addControl(deckOverlay);
+    map.addControl(buildLegendControl());
 }
 
 function parseGPX(gpxText) {
@@ -302,38 +303,56 @@ document.getElementById('track-opacity').addEventListener('input', (e) => {
     updateTrackLayer();
 });
 
-document.getElementById('legend-toggle').addEventListener('click', () => {
-    document.getElementById('legend').classList.toggle('visible');
-});
+function buildLegendControl() {
+    const legend = document.createElement('div');
+    legend.className = 'legend';
 
-function buildLegend() {
-    const legend = document.getElementById('legend');
-    const entries = [];
+    const title = document.createElement('div');
+    title.className = 'legend-title';
+    title.textContent = 'Climb rate (m/s)';
+    legend.appendChild(title);
+
     for (let i = climbRateDomain.length - 1; i >= 0; i--) {
 	const v = climbRateDomain[i];
-	let label;
+	let text;
 	if (i === climbRateDomain.length - 1)
-	    label = `≥ ${climbRateDomain[i - 1]}`;
+	    text = `≥ ${climbRateDomain[i - 1]}`;
 	else if (i === 0)
-	    label = `≤ ${v}`;
+	    text = `≤ ${v}`;
 	else
-	    label = `${climbRateDomain[i - 1]} to ${v}`;
-	entries.push({ value: v, label });
-    }
-    for (const entry of entries) {
+	    text = `${climbRateDomain[i - 1]} to ${v}`;
+
 	const item = document.createElement('div');
 	item.className = 'legend-item';
 	const swatch = document.createElement('span');
 	swatch.className = 'legend-swatch';
-	swatch.style.background = climbScale(entry.value).css();
+	swatch.style.background = climbScale(v).css();
 	const label = document.createElement('span');
 	label.className = 'legend-label';
-	label.textContent = entry.label;
+	label.textContent = text;
 	item.appendChild(swatch);
 	item.appendChild(label);
 	legend.appendChild(item);
     }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.title = 'Color legend';
+    btn.innerHTML = '&#x25A8;';
+    btn.addEventListener('click', () => legend.classList.toggle('visible'));
+
+    return {
+	onAdd() {
+	    this._container = document.createElement('div');
+	    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+	    this._container.appendChild(btn);
+	    this._container.appendChild(legend);
+	    return this._container;
+	},
+	onRemove() {
+	    this._container.remove();
+	}
+    };
 }
 
-buildLegend();
 initMap();
