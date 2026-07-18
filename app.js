@@ -88,27 +88,27 @@ function parseGPX(gpxText) {
     const points = [];
 
     trackpoints.forEach(trkpt => {
-        const lat = parseFloat(trkpt.getAttribute('lat'));
-        const lon = parseFloat(trkpt.getAttribute('lon'));
+	const lat = parseFloat(trkpt.getAttribute('lat'));
+	const lon = parseFloat(trkpt.getAttribute('lon'));
 
-        const eleElement = trkpt.querySelector('ele');
-        const ele = eleElement ? parseFloat(eleElement.textContent) : null;
+	const eleElement = trkpt.querySelector('ele');
+	const ele = eleElement ? parseFloat(eleElement.textContent) : null;
 
-        const timeElement = trkpt.querySelector('time');
-        const time = timeElement ? new Date(timeElement.textContent) : null;
+	const timeElement = trkpt.querySelector('time');
+	const time = timeElement ? new Date(timeElement.textContent) : null;
 
-        points.push({
-            coordinates: [lon, lat, ele],
-            elevation: ele,
-            time: time
-        });
+	points.push({
+	    coordinates: [lon, lat, ele],
+	    elevation: ele,
+	    time: time
+	});
     });
 
     const geojson = toGeoJSON.gpx(gpxDoc);
 
     // Attach our parsed points with elevation and time
     if (geojson.features && geojson.features.length > 0) {
-        geojson.features[0].properties.points = points;
+	geojson.features[0].properties.points = points;
     }
 
     return geojson;
@@ -118,38 +118,39 @@ function computeClimbRate(points, windowSeconds = 5) {
     const climbRates = [];
 
     for (let i = 0; i < points.length; i++) {
-        const currentPoint = points[i];
+	const currentPoint = points[i];
 
-        if (!currentPoint.time || currentPoint.elevation === null) {
-            climbRates.push(0);
-            continue;
-        }
+	if (!currentPoint.time || currentPoint.elevation === null) {
+	    climbRates.push(0);
+	    continue;
+	}
 
-        // Find points within window
-        let startIdx = i;
-        for (let j = i - 1; j >= 0; j--) {
-            if (!points[j].time) break;
-            const timeDiff = (currentPoint.time - points[j].time) / 1000;
-            if (timeDiff > windowSeconds) break;
-            startIdx = j;
-        }
+	// Find points within window
+	let startIdx = i;
+	for (let j = i - 1; j >= 0; j--) {
+	    if (!points[j].time) break;
+	    const timeDiff = (currentPoint.time - points[j].time) / 1000;
+	    if (timeDiff > windowSeconds) break;
+	    startIdx = j;
+	}
 
-        if (startIdx === i) {
-            climbRates.push(0);
-            continue;
-        }
+	if (startIdx === i) {
+	    climbRates.push(0);
+	    continue;
+	}
 
-        const startPoint = points[startIdx];
-        const elevationGain = currentPoint.elevation - startPoint.elevation;
-        const timeDiff = (currentPoint.time - startPoint.time) / 1000;
+	const startPoint = points[startIdx];
+	const elevationGain = currentPoint.elevation - startPoint.elevation;
+	const timeDiff = (currentPoint.time - startPoint.time) / 1000;
 
-        const climbRate = timeDiff > 0 ? elevationGain / timeDiff : 0;
-        climbRates.push(climbRate);
+	const climbRate = timeDiff > 0 ? elevationGain / timeDiff : 0;
+	climbRates.push(climbRate);
     }
 
     return climbRates;
 }
 
+const climbRateDomain = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
 const climbScale = chroma.scale([
     [0, 0, 139],       // -4: Dark blue
     [0, 0, 205],       // -3: Medium blue
@@ -161,10 +162,12 @@ const climbScale = chroma.scale([
     [255, 165, 0],     //  3: Orange
     [255, 69, 0],      //  4: Red-orange
     [139, 0, 0],       //  5: Dark red
-]).domain([-4, -3, -2, -1, 0, 1, 2, 3, 4, 5]);
+]).domain(climbRateDomain);
 
 function getColorForClimbRate(climbRate) {
-    const stepped = Math.max(-4, Math.min(5, Math.ceil(climbRate)));
+    const lo = climbRateDomain[0];
+    const hi = climbRateDomain[climbRateDomain.length - 1];
+    const stepped = Math.max(lo, Math.min(hi, Math.ceil(climbRate)));
     return climbScale(stepped).rgb();
 }
 
@@ -172,33 +175,33 @@ function segmentTrackByClimbRate(points, climbRates, opacity) {
     const segments = [];
 
     let currentSegment = {
-        path: [points[0].coordinates],
-        color: [...getColorForClimbRate(climbRates[0]), opacity]
+	path: [points[0].coordinates],
+	color: [...getColorForClimbRate(climbRates[0]), opacity]
     };
 
     for (let i = 1; i < points.length; i++) {
-        const currentColor = getColorForClimbRate(climbRates[i]);
-        const prevColor = getColorForClimbRate(climbRates[i - 1]);
+	const currentColor = getColorForClimbRate(climbRates[i]);
+	const prevColor = getColorForClimbRate(climbRates[i - 1]);
 
-        // Check if color category changed
-        if (JSON.stringify(currentColor) === JSON.stringify(prevColor)) {
-            currentSegment.path.push(points[i].coordinates);
-        } else {
-            // Finish current segment
-            currentSegment.path.push(points[i].coordinates);
-            segments.push(currentSegment);
+	// Check if color category changed
+	if (JSON.stringify(currentColor) === JSON.stringify(prevColor)) {
+	    currentSegment.path.push(points[i].coordinates);
+	} else {
+	    // Finish current segment
+	    currentSegment.path.push(points[i].coordinates);
+	    segments.push(currentSegment);
 
-            // Start new segment
-            currentSegment = {
-                path: [points[i].coordinates],
-                color: [...currentColor, opacity]
-            };
-        }
+	    // Start new segment
+	    currentSegment = {
+		path: [points[i].coordinates],
+		color: [...currentColor, opacity]
+	    };
+	}
     }
 
     // Add final segment
     if (currentSegment.path.length > 0) {
-        segments.push(currentSegment);
+	segments.push(currentSegment);
     }
 
     return segments;
@@ -305,18 +308,18 @@ document.getElementById('legend-toggle').addEventListener('click', () => {
 
 function buildLegend() {
     const legend = document.getElementById('legend');
-    const entries = [
-	{ value:  5, label: '> 4' },
-	{ value:  4, label: '3 to 4' },
-	{ value:  3, label: '2 to 3' },
-	{ value:  2, label: '1 to 2' },
-	{ value:  1, label: '0 to 1' },
-	{ value:  0, label: '-1 to 0' },
-	{ value: -1, label: '-2 to -1' },
-	{ value: -2, label: '-3 to -2' },
-	{ value: -3, label: '-4 to -3' },
-	{ value: -4, label: '≤ -4' },
-    ];
+    const entries = [];
+    for (let i = climbRateDomain.length - 1; i >= 0; i--) {
+	const v = climbRateDomain[i];
+	let label;
+	if (i === climbRateDomain.length - 1)
+	    label = `≥ ${climbRateDomain[i - 1]}`;
+	else if (i === 0)
+	    label = `≤ ${v}`;
+	else
+	    label = `${climbRateDomain[i - 1]} to ${v}`;
+	entries.push({ value: v, label });
+    }
     for (const entry of entries) {
 	const item = document.createElement('div');
 	item.className = 'legend-item';
