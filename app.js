@@ -1,7 +1,6 @@
 let map;
 let deckOverlay;
 let currentGeojson = null;
-let trackOpacity = 255;
 
 // From https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/
 function initMap() {
@@ -172,12 +171,12 @@ function getColorForClimbRate(climbRate) {
     return climbScale(stepped).rgb();
 }
 
-function segmentTrackByClimbRate(points, climbRates, opacity) {
+function segmentTrackByClimbRate(points, climbRates) {
     const segments = [];
 
     let currentSegment = {
 	path: [points[0].coordinates],
-	color: [...getColorForClimbRate(climbRates[0]), opacity]
+	color: [...getColorForClimbRate(climbRates[0])]
     };
 
     for (let i = 1; i < points.length; i++) {
@@ -195,7 +194,7 @@ function segmentTrackByClimbRate(points, climbRates, opacity) {
 	    // Start new segment
 	    currentSegment = {
 		path: [points[i].coordinates],
-		color: [...currentColor, opacity]
+		color: [...currentColor]
 	    };
 	}
     }
@@ -255,7 +254,7 @@ function updateTrackLayer() {
     const climbRates = computeClimbRate(points, 5);
 
     // Segment track by climb rate
-    const segments = segmentTrackByClimbRate(points, climbRates, trackOpacity);
+    const segments = segmentTrackByClimbRate(points, climbRates);
 
     console.log('Created', segments.length, 'segments');
 
@@ -294,13 +293,6 @@ document.getElementById('gpx-file').addEventListener('change', (e) => {
 	};
 	reader.readAsText(file);
     }
-});
-
-document.getElementById('track-opacity').addEventListener('input', (e) => {
-    trackOpacity = parseInt(e.target.value);
-    const percentage = Math.round((trackOpacity / 255) * 100);
-    document.getElementById('opacity-value').textContent = `${percentage}%`;
-    updateTrackLayer();
 });
 
 function buildLegendControl() {
