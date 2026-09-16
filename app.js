@@ -87,14 +87,14 @@ function parseGPX(gpxText) {
     const trackpoints = gpxDoc.querySelectorAll('trkpt');
     const points = [];
 
-    trackpoints.forEach(trkpt => {
-	const lat = parseFloat(trkpt.getAttribute('lat'));
-	const lon = parseFloat(trkpt.getAttribute('lon'));
+    trackpoints.forEach(point => {
+	const lat = parseFloat(point.getAttribute('lat'));
+	const lon = parseFloat(point.getAttribute('lon'));
 
-	const eleElement = trkpt.querySelector('ele');
+	const eleElement = point.querySelector('ele');
 	const ele = eleElement ? parseFloat(eleElement.textContent) : null;
 
-	const timeElement = trkpt.querySelector('time');
+	const timeElement = point.querySelector('time');
 	const time = timeElement ? new Date(timeElement.textContent) : null;
 
 	points.push({
@@ -114,23 +114,19 @@ function parseGPX(gpxText) {
     return geojson;
 }
 
+// For each point, compute the climb rate from the elevation delta between
+// said point and @windowSeconds in the past.
 function computeClimbRate(points, windowSeconds = 5) {
     const climbRates = [];
 
     for (let i = 0; i < points.length; i++) {
-	const currentPoint = points[i];
+	const point = points[i];
 
-	if (!currentPoint.time || currentPoint.elevation === null) {
-	    climbRates.push(0);
-	    continue;
-	}
-
-	// Find points within window
 	let startIdx = i;
 	for (let j = i - 1; j >= 0; j--) {
-	    if (!points[j].time) break;
-	    const timeDiff = (currentPoint.time - points[j].time) / 1000;
-	    if (timeDiff > windowSeconds) break;
+	    const timeDiff = (point.time - points[j].time) / 1000;
+	    if (timeDiff > windowSeconds)
+		break;
 	    startIdx = j;
 	}
 
@@ -140,8 +136,8 @@ function computeClimbRate(points, windowSeconds = 5) {
 	}
 
 	const startPoint = points[startIdx];
-	const elevationGain = currentPoint.elevation - startPoint.elevation;
-	const timeDiff = (currentPoint.time - startPoint.time) / 1000;
+	const elevationGain = point.elevation - startPoint.elevation;
+	const timeDiff = (point.time - startPoint.time) / 1000;
 
 	const climbRate = timeDiff > 0 ? elevationGain / timeDiff : 0;
 	climbRates.push(climbRate);
@@ -176,7 +172,7 @@ function segmentTrackByClimbRate(points, climbRates) {
 
     let currentSegment = {
 	path: [points[0].coordinates],
-	color: [...getColorForClimbRate(climbRates[0])]
+	color: getColorForClimbRate(climbRates[0])
     };
 
     for (let i = 1; i < points.length; i++) {
@@ -194,7 +190,7 @@ function segmentTrackByClimbRate(points, climbRates) {
 	    // Start new segment
 	    currentSegment = {
 		path: [points[i].coordinates],
-		color: [...currentColor]
+		color: currentColor
 	    };
 	}
     }
@@ -251,7 +247,7 @@ function updateTrackLayer() {
     }
 
     // Compute climb rates
-    const climbRates = computeClimbRate(points, 5);
+    const climbRates = computeClimbRate(points);
 
     // Segment track by climb rate
     const segments = segmentTrackByClimbRate(points, climbRates);
