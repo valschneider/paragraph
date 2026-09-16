@@ -51,6 +51,17 @@
 	  margin-top: 2px;
       }
 
+      .radio-label {
+	display: block;
+	font-size: 13px;
+	margin-bottom: 3px;
+	cursor: pointer;
+      }
+
+      .radio-label input {
+	margin-right: 5px;
+      }
+
       .legend {
 	  display: none;
 	  background: white;
@@ -93,6 +104,17 @@
     <div id="map"></div>
     <div class="controls">
       <input type="file" id="gpx-file" accept=".gpx" />
+      <div class="control-group">
+	<label>Coloring</label>
+	<label class="radio-label">
+	  <input type="radio" name="color-mode" value="vz" checked />
+	  Climb rate
+	</label>
+	<label class="radio-label">
+	  <input type="radio" name="color-mode" value="vh" />
+	  Ground speed
+	</label>
+      </div>
     </div>
 
     <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>

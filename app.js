@@ -1,6 +1,8 @@
 let map;
 let deckOverlay;
 let currentGeojson = null;
+let currentMode = 'vz';
+let legendEl = null;
 
 // From https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/
 function initMap() {
@@ -116,8 +118,8 @@ function parseGPX(gpxText) {
 
 // For each point, compute the climb rate from the elevation delta between
 // said point and @windowSeconds in the past.
-function computeClimbRate(points, windowSeconds = 5) {
-    const climbRates = [];
+function computeVz(points, windowSeconds = 5) {
+    const vzs = [];
 
     for (let i = 0; i < points.length; i++) {
 	const point = points[i];
@@ -131,7 +133,7 @@ function computeClimbRate(points, windowSeconds = 5) {
 	}
 
 	if (startIdx === i) {
-	    climbRates.push(0);
+	    vzs.push(0);
 	    continue;
 	}
 
@@ -139,15 +141,49 @@ function computeClimbRate(points, windowSeconds = 5) {
 	const elevationGain = point.elevation - startPoint.elevation;
 	const timeDiff = (point.time - startPoint.time) / 1000;
 
-	const climbRate = timeDiff > 0 ? elevationGain / timeDiff : 0;
-	climbRates.push(climbRate);
+	const vz = timeDiff > 0 ? elevationGain / timeDiff : 0;
+	vzs.push(vz);
     }
 
-    return climbRates;
+    return vzs;
 }
 
-const climbRateDomain = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
-const climbScale = chroma.scale([
+function computeVh(points, windowSeconds = 5) {
+    const vhs = [];
+
+    for (let i = 0; i < points.length; i++) {
+	const point = points[i];
+
+	let startIdx = i;
+	for (let j = i - 1; j >= 0; j--) {
+	    const timeDiff = (point.time - points[j].time) / 1000;
+	    if (timeDiff > windowSeconds)
+		break;
+	    startIdx = j;
+	}
+
+	if (startIdx === i) {
+	    vhs.push(0);
+	    continue;
+	}
+
+	const startPoint = points[startIdx];
+	const timeDiff = (point.time - startPoint.time) / 1000;
+
+	const latRad = point.coordinates[1] * Math.PI / 180;
+	const dy = (point.coordinates[1] - startPoint.coordinates[1]) * Math.PI / 180 * 6371000;
+	const dx = (point.coordinates[0] - startPoint.coordinates[0]) * Math.PI / 180 * Math.cos(latRad) * 6371000;
+	const distance = Math.sqrt(dx * dx + dy * dy);
+
+	const vh = timeDiff > 0 ? (distance / timeDiff) * 3.6 : 0;
+	vhs.push(vh);
+    }
+
+    return vhs;
+}
+
+const vzDomain = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
+const vzScale = chroma.scale([
     [0, 0, 139],       // -4: Dark blue
     [0, 0, 205],       // -3: Medium blue
     [30, 144, 255],    // -2: Dodger blue
@@ -158,26 +194,46 @@ const climbScale = chroma.scale([
     [255, 165, 0],     //  3: Orange
     [255, 69, 0],      //  4: Red-orange
     [139, 0, 0],       //  5: Dark red
-]).domain(climbRateDomain);
+]).domain(vzDomain);
 
-function getColorForClimbRate(climbRate) {
-    const lo = climbRateDomain[0];
-    const hi = climbRateDomain[climbRateDomain.length - 1];
-    const stepped = Math.max(lo, Math.min(hi, Math.ceil(climbRate)));
-    return climbScale(stepped).rgb();
+function getColorForVz(vz) {
+    const lo = vzDomain[0];
+    const hi = vzDomain[vzDomain.length - 1];
+    const stepped = Math.max(lo, Math.min(hi, Math.ceil(vz)));
+    return vzScale(stepped).rgb();
 }
 
-function segmentTrackByClimbRate(points, climbRates) {
+const vhDomain = [10, 15, 20, 25, 30, 35, 40, 45, 50];
+const vhScale = chroma.scale([
+    [75, 0, 130],      // 10: Indigo
+    [0, 0, 205],       // 15: Medium blue
+    [30, 144, 255],    // 20: Dodger blue
+    [0, 206, 209],     // 25: Dark turquoise
+    [50, 205, 50],     // 30: Lime green
+    [255, 255, 0],     // 35: Yellow
+    [255, 165, 0],     // 40: Orange
+    [255, 69, 0],      // 45: Red-orange
+    [139, 0, 0],       // 50: Dark red
+]).domain(vhDomain);
+
+function getColorForVh(vh) {
+    const lo = vhDomain[0];
+    const hi = vhDomain[vhDomain.length - 1];
+    const stepped = Math.max(lo, Math.min(hi, Math.ceil(vh / 5) * 5));
+    return vhScale(stepped).rgb();
+}
+
+function segmentTrack(points, values, getColor) {
     const segments = [];
 
     let currentSegment = {
 	path: [points[0].coordinates],
-	color: getColorForClimbRate(climbRates[0])
+	color: getColor(values[0])
     };
 
     for (let i = 1; i < points.length; i++) {
-	const currentColor = getColorForClimbRate(climbRates[i]);
-	const prevColor = getColorForClimbRate(climbRates[i - 1]);
+	const currentColor = getColor(values[i]);
+	const prevColor = getColor(values[i - 1]);
 
 	// Check if color category changed
 	if (JSON.stringify(currentColor) === JSON.stringify(prevColor)) {
@@ -246,11 +302,16 @@ function updateTrackLayer() {
 	return;
     }
 
-    // Compute climb rates
-    const climbRates = computeClimbRate(points);
+    let values, getColor;
+    if (currentMode === 'vz') {
+	values = computeVz(points);
+	getColor = getColorForVz;
+    } else {
+	values = computeVh(points);
+	getColor = getColorForVh;
+    }
 
-    // Segment track by climb rate
-    const segments = segmentTrackByClimbRate(points, climbRates);
+    const segments = segmentTrack(points, values, getColor);
 
     console.log('Created', segments.length, 'segments');
 
@@ -291,50 +352,67 @@ document.getElementById('gpx-file').addEventListener('change', (e) => {
     }
 });
 
-function buildLegendControl() {
-    const legend = document.createElement('div');
-    legend.className = 'legend';
+function updateLegendContent() {
+    if (!legendEl) return;
+    legendEl.innerHTML = '';
 
-    const title = document.createElement('div');
-    title.className = 'legend-title';
-    title.textContent = 'Climb rate (m/s)';
-    legend.appendChild(title);
+    let domain, scale, title;
+    if (currentMode === 'vz') {
+	domain = vzDomain;
+	scale = vzScale;
+	title = 'Climb rate (m/s)';
+    } else {
+	domain = vhDomain;
+	scale = vhScale;
+	title = 'Ground speed (km/h)';
+    }
 
-    for (let i = climbRateDomain.length - 1; i >= 0; i--) {
-	const v = climbRateDomain[i];
+    const titleEl = document.createElement('div');
+    titleEl.className = 'legend-title';
+    titleEl.textContent = title;
+    legendEl.appendChild(titleEl);
+
+    for (let i = domain.length - 1; i >= 0; i--) {
+	const v = domain[i];
 	let text;
-	if (i === climbRateDomain.length - 1)
-	    text = `≥ ${climbRateDomain[i - 1]}`;
+	if (i === domain.length - 1)
+	    text = `≥ ${domain[i - 1]}`;
 	else if (i === 0)
 	    text = `≤ ${v}`;
 	else
-	    text = `${climbRateDomain[i - 1]} to ${v}`;
+	    text = `${domain[i - 1]} to ${v}`;
 
 	const item = document.createElement('div');
 	item.className = 'legend-item';
 	const swatch = document.createElement('span');
 	swatch.className = 'legend-swatch';
-	swatch.style.background = climbScale(v).css();
+	swatch.style.background = scale(v).css();
 	const label = document.createElement('span');
 	label.className = 'legend-label';
 	label.textContent = text;
 	item.appendChild(swatch);
 	item.appendChild(label);
-	legend.appendChild(item);
+	legendEl.appendChild(item);
     }
+}
+
+function buildLegendControl() {
+    legendEl = document.createElement('div');
+    legendEl.className = 'legend';
+    updateLegendContent();
 
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.title = 'Color legend';
     btn.innerHTML = '&#x25A8;';
-    btn.addEventListener('click', () => legend.classList.toggle('visible'));
+    btn.addEventListener('click', () => legendEl.classList.toggle('visible'));
 
     return {
 	onAdd() {
 	    this._container = document.createElement('div');
 	    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
 	    this._container.appendChild(btn);
-	    this._container.appendChild(legend);
+	    this._container.appendChild(legendEl);
 	    return this._container;
 	},
 	onRemove() {
@@ -342,5 +420,13 @@ function buildLegendControl() {
 	}
     };
 }
+
+document.querySelectorAll('input[name="color-mode"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+	currentMode = e.target.value;
+	updateLegendContent();
+	updateTrackLayer();
+    });
+});
 
 initMap();
